@@ -231,7 +231,7 @@
     <!-- Indicatori Statistici -->
     <div id="status-grid">
         <div class="status-item">Salute: <span id="stat-health">100</span>%</div>
-        <div class="status-item">Integrità Gonfiabile Giallo: <span id="stat-raft">100</span>%</div>
+        <div class="status-item">Integrità Gonfiabile: <span id="stat-raft">100</span>%</div>
         
         <div class="status-item" style="grid-column: span 2; margin-top: 5px;">Idratazione: <span id="stat-water-level">100</span>%</div>
         <div class="bar-container"><div id="bar-water" class="bar-fill"></div></div>
@@ -297,7 +297,7 @@ class IdleRealTimeSurvival {
         this.gameState.currentWeather = 'sereno';
         this.updateUI();
         this.loopInterval = setInterval(() => this.gameTick(), this.tickRate);
-        this.log("Kit medico e razioni verificate sul gonfiabile. Buona fortuna.", "log-system");
+        this.log("Kit sopravvivenza e razioni verificate sul gonfiabile. Buona fortuna.", "log-system");
     }
 
     log(message, type = '') {
