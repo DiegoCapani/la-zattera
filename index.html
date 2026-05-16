@@ -252,7 +252,7 @@
 
     <!-- Diario di Bordo -->
     <div id="log-panel">
-        <div class="log-entry log-system">SISTEMA: Notifiche integrate esclusivamente nel diario di bordo testuale.</div>
+        <div class="log-entry log-system">SISTEMA: Controllo integrità attivo. Kit di riparazione utilizzabile solo in caso di danni reali.</div>
     </div>
 
     <!-- Pannello di Controllo Azioni -->
@@ -385,7 +385,7 @@ class IdleRealTimeSurvival {
         if (Math.random() < 0.02) {
             let disponibili = Object.keys(this.weatherTypes);
             if (this.gameState.phase === 'SERA' || this.gameState.phase === 'NOTTE') {
-                disponibili = disponibili.filter(key => key !== 'torrido');
+                disponibly = disponibili.filter(key => key !== 'torrido');
             }
             const vecchioMeteo = this.gameState.currentWeather;
             const nuovoMeteo = disponibili[Math.floor(Math.random() * disponibili.length)];
@@ -485,7 +485,6 @@ class IdleRealTimeSurvival {
         }
     }
 
-    // --- LOGICHE DI CONSUMO - SOLO LOG DI AVVISO ---
     actionEat() {
         if (Math.round(this.gameState.foodLevel) >= 100) {
             this.log("🚫 Non sprecare risorse: la tua pancia è già piena!", "log-bad");
@@ -548,15 +547,16 @@ class IdleRealTimeSurvival {
         this.updateUI();
     }
 
+    // --- FIX STRUTTURALE: Riparazione bloccata se l'integrità è al 100% ---
     actionUseKit() {
         if(this.gameState.isFloatingInWater) return;
         
-        if (this.gameState.repairsCount >= 5) {
-            this.log("🚫 ERROR: Kit esausto! Non puoi effettuare altre riparazioni strutturali.", "log-bad");
+        if (Math.round(this.gameState.raftIntegrity) >= 100) {
+            this.log("🚫 Non sprecare forze: la zattera è già perfettamente integra (100%).", "log-bad");
             return;
         }
-        if (this.gameState.raftIntegrity >= 100) {
-            this.log("La zattera non necessita di riparazioni al momento.", "log-system");
+        if (this.gameState.repairsCount >= 5) {
+            this.log("🚫 ERROR: Kit esausto! Non puoi effettuare altre riparazioni strutturali.", "log-bad");
             return;
         }
 
