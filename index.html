@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Disperso in Mare - Survival Game</title>
+    <title>Disperso in Mare - Hardcore Time Survival</title>
     <style>
-        /* Reset e Stile Base - Dark Mode Evocativa */
+        /* Reset e Stile Base */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -23,12 +23,11 @@
             padding: 10px;
         }
 
-        /* Container Principale adattabile a Desktop e Mobile */
         #game-container {
             width: 100%;
             max-width: 600px;
             background-color: #152e3d;
-            border: 3px solid #facc15; /* Giallo zattera */
+            border: 3px solid #facc15;
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
@@ -37,7 +36,6 @@
             gap: 15px;
         }
 
-        /* Header con l'elemento iconico: la Zattera Gialla */
         header {
             text-align: center;
             border-bottom: 2px solid #334155;
@@ -51,7 +49,6 @@
             margin-bottom: 5px;
         }
 
-        /* Indicatore del Meteo Dinamico */
         #weather-banner {
             background-color: #1e293b;
             color: #38bdf8;
@@ -65,7 +62,7 @@
             text-transform: uppercase;
         }
 
-        /* Status Bar (Risorse) Grid per renderla responsive */
+        /* Status Bar Grid */
         #status-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -87,7 +84,19 @@
             animation: blink 1s infinite;
         }
 
-        /* Log degli Eventi (Il "Narratore" del gioco) */
+        /* Pannello dei Moltiplicatori del Tempo */
+        #time-modifiers-panel {
+            background-color: #1e293b;
+            border: 1px dashed #ef4444;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #f87171;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Log degli Eventi */
         #log-panel {
             height: 180px;
             background-color: #020617;
@@ -109,7 +118,7 @@
         .log-bad { color: #f87171; }
         .log-system { color: #38bdf8; }
 
-        /* Pannello Azioni / Bottoni */
+        /* Pannello Azioni */
         #actions-panel {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -126,7 +135,7 @@
             border-radius: 6px;
             cursor: pointer;
             transition: background 0.2s;
-            touch-action: manipulation; /* Ottimizzazione per mobile (evita delay tap) */
+            touch-action: manipulation;
         }
 
         button:hover {
@@ -139,7 +148,6 @@
             cursor: not-allowed;
         }
 
-        /* Animazione per situazioni critiche */
         @keyframes blink {
             50% { opacity: 0.5; }
         }
@@ -149,9 +157,15 @@
 
 <div id="game-container">
     <header>
-        <h1>ZATTERA DI SALVATAGGIO: GIORNO <span id="day-count">1</span></h1>
+        <h1>ZATTERA: GIORNO <span id="day-count">1</span></h1>
         <div id="weather-banner">Meteo: Inizializzazione...</div>
     </header>
+
+    <!-- Nuovo pannello che mostra gli effetti del tempo al giocatore -->
+    <div id="time-modifiers-panel">
+        <span>Logoramento Zattera: +<span id="mod-degrade">0</span>%/giorno</span>
+        <span>Stress Corporeo: <span id="mod-stress">Nessuno</span></span>
+    </div>
 
     <!-- Risorse del Giocatore -->
     <div id="status-grid">
@@ -169,7 +183,7 @@
 
     <!-- Diario di Bordo -->
     <div id="log-panel">
-        <div class="log-entry log-system">Giorno 1: La nave è affondata. Sei sulla zattera gonfiabile gialla. Hai razioni iniziali e il kit di sopravvivenza.</div>
+        <div class="log-entry log-system">Giorno 1: Naufragato. Più tempo passerai in mare, più la fame, la sete e l'usura della zattera diventeranno feroci.</div>
     </div>
 
     <!-- Controlli di Gioco -->
@@ -185,103 +199,59 @@
 </div>
 
 <script>
-// Logica del Gioco di Sopravvivenza
 class RaftSurvival {
     constructor() {
-        // Stato Iniziale (Cibo per 14 giorni, Acqua per 10)
         this.gameState = {
             day: 1,
             health: 100,
             waterLevel: 100,
             foodLevel: 100,
             raftIntegrity: 100,
-            currentWeather: 'sereno', // Stato meteo corrente
-            inventory: {
-                waterRations: 10,
-                foodRations: 14,
-                flares: 3,
-                hasRod: true
-            },
+            currentWeather: 'sereno',
+            inventory: { waterRations: 10, foodRations: 14, flares: 3 },
             gameOver: false
         };
 
-        // Definizione di tutte le varianti reali di meteo e relativi modificatori di gioco
         this.weatherTypes = {
-            'sereno': {
-                name: "Mare Sereno ☀️",
-                color: "#1e293b",
-                waterBurn: 25,       // Consumo acqua base
-                foodBurn: 20,        // Consumo cibo base
-                fishChance: 0.5,     // 50% probabilità di pescare
-                rainChance: 0.1,     // Difficile raccogliere acqua (solo umidità)
-                flareSuccess: 0.15   // Visibilità ottimale per i soccorsi
-            },
-            'torrido': {
-                name: "Sole Torrido 🥵",
-                color: "#b45309",    // Arancione/Mattone
-                waterBurn: 40,       // Forte disidratazione dovuta al caldo
-                foodBurn: 15,        // Meno fame a causa del caldo opprimente
-                fishChance: 0.3,     // I pesci vanno in profondità per il caldo
-                rainChance: 0.0,     // Impossibile raccogliere acqua
-                flareSuccess: 0.20   // Visibilità eccellente
-            },
-            'nuvoloso': {
-                name: "Cielo Nuvoloso ☁️",
-                color: "#475569",    // Grigio
-                waterBurn: 20,       // Meno caldo, consumo d'acqua ridotto
-                foodBurn: 20,
-                fishChance: 0.6,     // Condizione ottima per la pesca superficiale
-                rainChance: 0.2,     // Qualche goccia leggera ogni tanto
-                flareSuccess: 0.10   // Le nuvole parziali riducono la visibilità
-            },
-            'pioggia': {
-                name: "Pioggia Battente 🌧️",
-                color: "#1d4ed8",    // Blu
-                waterBurn: 20,
-                foodBurn: 25,        // Il corpo si raffredda, serve più cibo
-                fishChance: 0.4,
-                rainChance: 0.9,     // Raccolta acqua quasi garantita ed efficace
-                flareSuccess: 0.05   // Visibilità scarsa
-            },
-            'nebbia': {
-                name: "Nebbia Fitta 🌫️",
-                color: "#334155",    // Grigio scuro opaco
-                waterBurn: 15,       // Molta umidità, gola meno secca
-                foodBurn: 20,
-                fishChance: 0.5,
-                rainChance: 0.4,     // Si può raccogliere l'umidità della nebbia accumulata
-                flareSuccess: 0.0    // Razzi inutili, non ti vedrà nessuno
-            },
-            'tempesta': {
-                name: "TEMPESTA ⛈️",
-                color: "#7f1d1d",    // Rosso scuro / Pericolo
-                waterBurn: 25,
-                foodBurn: 30,        // Sforzo fisico enorme per restare a bordo
-                fishChance: 0.1,     // Impossibile pescare tra le onde ondeggianti
-                rainChance: 1.0,     // Acqua a volontà, ma c'è il rischio danni
-                flareSuccess: 0.01   // Razzi del tutto invisibili e bagnati
-            }
+            'sereno': { name: "Mare Sereno ☀️", color: "#1e293b", waterBurn: 25, foodBurn: 20, fishChance: 0.5, rainChance: 0.1, flareSuccess: 0.15 },
+            'torrido': { name: "Sole Torrido 🥵", color: "#b45309", waterBurn: 40, foodBurn: 15, fishChance: 0.3, rainChance: 0.0, flareSuccess: 0.20 },
+            'nuvoloso': { name: "Cielo Nuvoloso ☁️", color: "#475569", waterBurn: 20, foodBurn: 20, fishChance: 0.6, rainChance: 0.2, flareSuccess: 0.10 },
+            'pioggia': { name: "Pioggia Battente 🌧️", color: "#1d4ed8", waterBurn: 20, foodBurn: 25, fishChance: 0.4, rainChance: 0.9, flareSuccess: 0.05 },
+            'nebbia': { name: "Nebbia Fitta 🌫️", color: "#334155", waterBurn: 15, foodBurn: 20, fishChance: 0.5, rainChance: 0.4, flareSuccess: 0.0 },
+            'tempesta': { name: "TEMPESTA ⛈️", color: "#7f1d1d", waterBurn: 25, foodBurn: 30, fishChance: 0.1, rainChance: 1.0, flareSuccess: 0.01 }
         };
     }
 
     init() {
-        // Forza il meteo iniziale a sereno per il giorno 1
         this.gameState.currentWeather = 'sereno';
         this.updateUI();
     }
 
-    // Aggiunge un testo al diario di bordo
     log(message, type = '') {
         const logPanel = document.getElementById('log-panel');
         const entry = document.createElement('div');
         entry.className = `log-entry ${type}`;
         entry.innerText = message;
         logPanel.appendChild(entry);
-        logPanel.scrollTop = logPanel.scrollHeight; // Auto-scroll in basso
+        logPanel.scrollTop = logPanel.scrollHeight;
+    }
+
+    // Calcola i modificatori incrementali in base al tempo (Giorno corrente)
+    getNaturalRaftDegradation() {
+        // La zattera perde progressivamente integrità ogni giorno a causa della porosità del sole e del sale.
+        // Giorno 1: +0% | Giorno 5: +2% | Giorno 10: +4% | Giorno 20: +9%
+        return Math.floor((this.gameState.day - 1) * 0.5);
+    }
+
+    getStressTier() {
+        if (this.gameState.day < 5) return { name: "Lieve", hungerMod: 0, thirstMod: 0 };
+        if (this.gameState.day < 12) return { name: "Moderato (+5)", hungerMod: 5, thirstMod: 5 };
+        return { name: "CRITICO (+15)", hungerMod: 15, thirstMod: 15 }; // Il metabolismo impazzisce per lo stress
     }
 
     updateUI() {
-        const currentWeatherStats = this.weatherTypes[this.gameState.currentWeather];
+        const weather = this.weatherTypes[this.gameState.currentWeather];
+        const stress = this.getStressTier();
 
         document.getElementById('day-count').innerText = this.gameState.day;
         document.getElementById('stat-health').innerText = this.gameState.health;
@@ -293,20 +263,22 @@ class RaftSurvival {
         document.getElementById('inv-food').innerText = this.gameState.inventory.foodRations;
         document.getElementById('inv-flares').innerText = this.gameState.inventory.flares;
 
-        // Aggiorna l'interfaccia visiva del meteo
+        // Aggiorna Banner Meteo
         const weatherBanner = document.getElementById('weather-banner');
-        weatherBanner.innerText = `Meteo: ${currentWeatherStats.name}`;
-        weatherBanner.style.backgroundColor = currentWeatherStats.color;
+        weatherBanner.innerText = `Meteo: ${weather.name}`;
+        weatherBanner.style.backgroundColor = weather.color;
 
-        // Allerte Visive se i parametri sono bassi
+        // Aggiorna Pannello Modificatori del Tempo
+        document.getElementById('mod-degrade').innerText = this.getNaturalRaftDegradation();
+        document.getElementById('mod-stress').innerText = stress.name;
+
+        // Allerte Critiche
         this.toggleCriticalClass('stat-health', this.gameState.health < 30);
         this.toggleCriticalClass('stat-water-level', this.gameState.waterLevel < 30);
         this.toggleCriticalClass('stat-food-level', this.gameState.foodLevel < 30);
         this.toggleCriticalClass('stat-raft', this.gameState.raftIntegrity < 30);
 
-        if (this.gameState.gameOver) {
-            this.disableAllButtons();
-        }
+        if (this.gameState.gameOver) this.disableAllButtons();
     }
 
     toggleCriticalClass(id, isCritical) {
@@ -316,20 +288,16 @@ class RaftSurvival {
     }
 
     disableAllButtons() {
-        const buttons = document.querySelectorAll('button');
-        buttons.forEach(btn => btn.disabled = true);
+        document.querySelectorAll('button').forEach(btn => btn.disabled = true);
     }
 
-    // --- AZIONI DEL GIOCATORE INFLUENZATE DAL METEO ---
-
+    // --- AZIONI ---
     actionEat() {
         if (this.gameState.inventory.foodRations > 0) {
             this.gameState.inventory.foodRations--;
             this.gameState.foodLevel = Math.min(100, this.gameState.foodLevel + 35);
-            this.log("Hai mangiato del cibo in scatola. La fame diminuisce.", "log-good");
+            this.log("Consumi cibo in scatola.", "log-good");
             this.updateUI();
-        } else {
-            this.log("Non hai più cibo in scatola!", "log-bad");
         }
     }
 
@@ -337,72 +305,53 @@ class RaftSurvival {
         if (this.gameState.inventory.waterRations > 0) {
             this.gameState.inventory.waterRations--;
             this.gameState.waterLevel = Math.min(100, this.gameState.waterLevel + 40);
-            this.log("Hai bevuto una razione d'acqua. La sete si placa.", "log-good");
+            this.log("Bevi una razione d'acqua.", "log-good");
             this.updateUI();
-        } else {
-            this.log("Non hai più acqua potabile!", "log-bad");
         }
     }
 
     actionFish() {
-        // Pescare consuma energie (fame)
-        this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - 5);
-        
-        const weather = this.weatherTypes[this.gameState.currentWeather];
+        // La stanchezza generata dal pescare aumenta con il passare dei giorni!
+        const fatigue = 5 + Math.floor(this.gameState.day * 0.3);
+        this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - fatigue);
         
         if (this.gameState.currentWeather === 'tempesta') {
-            this.log("Impossibile pescare! Le onde della tempesta rischiano di trascinarti via.", "log-bad");
+            this.log("Impossibile pescare durante una tempesta!", "log-bad");
             this.updateUI();
             return;
         }
 
-        const success = Math.random() < weather.fishChance;
-        if (success) {
+        const weather = this.weatherTypes[this.gameState.currentWeather];
+        if (Math.random() < weather.fishChance) {
             this.gameState.inventory.foodRations += 1;
-            this.log(`Successo! Grazie al cielo (${weather.name}) hai preso un pesce. +1 Razione Cibo.`, "log-good");
+            this.log(`Hai pescato un pesce. Consumata più energia a causa dei giorni di sfinimento (-${fatigue} Fame).`, "log-good");
         } else {
-            this.log(`Hai calato la lenza con questo meteo (${weather.name}), ma nessun pesce ha abboccato.`, "log-bad");
+            this.log("Nessun pesce ha abboccato.", "log-bad");
         }
         this.updateUI();
     }
 
     actionCollectWater() {
-        // Tentare di raccogliere acqua consuma pochissima fatica
-        this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - 2);
-        
+        this.gameState.waterLevel = Math.max(0, this.gameState.waterLevel - 2);
         const weather = this.weatherTypes[this.gameState.currentWeather];
-        const success = Math.random() < weather.rainChance;
         
-        if (success) {
-            // Se c'è pioggia reale o tempesta raccogli molto di più
-            let quantita = 1;
-            if (this.gameState.currentWeather === 'pioggia') quantita = 2;
-            if (this.gameState.currentWeather === 'tempesta') quantita = 3;
-
+        if (Math.random() < weather.rainChance) {
+            let quantita = this.gameState.currentWeather === 'tempesta' ? 3 : (this.gameState.currentWeather === 'pioggia' ? 2 : 1);
             this.gameState.inventory.waterRations += quantita;
-            this.log(`Ottimo! Sfruttando il meteo (${weather.name}) hai incanalato ${quantita} razone/i d'acqua dolce.`, "log-good");
+            this.log(`Hai incanalato ${quantita} razione/i di acqua dolce.`, "log-good");
         } else {
-            if (this.gameState.currentWeather === 'torrido') {
-                this.log("Il sole torrido ha evaporato istantaneamente ogni traccia residua di umidità. Zero acqua.", "log-bad");
-            } else {
-                this.log(`Il sistema di raccolta non ha accumulato nulla con questo cielo (${weather.name}).`, "log-bad");
-            }
+            this.log("Il sistema di raccolta è rimasto a secco.", "log-bad");
         }
         this.updateUI();
     }
 
     actionUseKit() {
         if (this.gameState.raftIntegrity < 100) {
-            if (this.gameState.currentWeather === 'tempesta' || this.gameState.currentWeather === 'pioggia') {
-                this.log("Le toppe non aderiscono bene mentre la zattera è completamente bagnata, ma ci provi.", "log-system");
-                this.gameState.raftIntegrity = Math.min(100, this.gameState.raftIntegrity + 10);
-            } else {
-                this.gameState.raftIntegrity = Math.min(100, this.gameState.raftIntegrity + 25);
-                this.log("Usi le toppe e il mastice del kit. Con questo clima asciutto le riparazioni tengono perfettamente.", "log-good");
-            }
+            // Riparare la zattera diventa meno efficace col tempo perché i materiali del kit invecchiano o finiscono!
+            const kitEfficiency = Math.max(10, 25 - Math.floor(this.gameState.day * 0.5));
+            this.gameState.raftIntegrity = Math.min(100, this.gameState.raftIntegrity + kitEfficiency);
+            this.log(`Riparazione effettuata. Efficacia kit ridotta dal tempo trascorso (+${kitEfficiency}% Integrità).`, "log-good");
             this.updateUI();
-        } else {
-            this.log("La zattera è già in ottime condizioni.", "log-system");
         }
     }
 
@@ -410,134 +359,131 @@ class RaftSurvival {
         if (this.gameState.inventory.flares > 0) {
             this.gameState.inventory.flares--;
             const weather = this.weatherTypes[this.gameState.currentWeather];
-            this.log(`Sparo un razzo di segnalazione nel cielo condizionato da: ${weather.name}...`, "log-system");
+            this.log("Sparo di segnalazione effettuato...", "log-system");
             
-            // Successo calcolato in base alle nubi/nebbia/sole del meteo corrente
             if (Math.random() < weather.flareSuccess) {
-                this.log("UNA NAVE ALL'ORIZZONTE TI HA AVVISTATO! Sganciano i soccorsi. SEI SALVO!", "log-good");
-                this.log(`VITTORIA! Sei sopravvissuto per ${this.gameState.day} giorni.`, "log-good");
+                this.log(`UNA NAVE TI HA VISTO! Sei salvo dopo ${this.gameState.day} giorni di inferno!`, "log-good");
                 this.gameState.gameOver = true;
             } else {
-                if (weather.flareSuccess === 0) {
-                    this.log("La nebbia è una barriera impenetrabile. Il razzo scompare nel nulla senza essere visto.", "log-bad");
-                } else {
-                    this.log("Il razzo si spegne debolmente lontano. Nessuna nave nei paraggi ti ha notato.", "log-bad");
-                }
+                this.log("Nessuno ha risposto al segnale.", "log-bad");
             }
             this.updateUI();
-        } else {
-            this.log("Non hai più razzi di segnalazione!", "log-bad");
         }
     }
 
-    // --- CAMBIO TURNO CON LOGICA METEOROLOGICA REALISTICA ---
-
+    // --- LOGICA DI AVANZAMENTO DEL TEMPO (IL CUORE DEL LOGORAMENTO) ---
     nextTurn() {
         if (this.gameState.gameOver) return;
 
         const previousWeather = this.weatherTypes[this.gameState.currentWeather];
+        const stress = this.getStressTier();
 
-        // 1. Consumo passivo basato interamente sul meteo del giorno appena trascorso
-        this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - previousWeather.foodBurn);
-        this.gameState.waterLevel = Math.max(0, this.gameState.waterLevel - previousWeather.waterBurn);
+        // 1. CONSUMO PASSIVO ACUTIZZATO DAL TEMPO
+        // Fame e sete base del meteo + il modificatore di stress da tempo accumulato
+        const finalFoodBurn = previousWeather.foodBurn + stress.hungerMod;
+        const finalWaterBurn = previousWeather.waterBurn + stress.thirstMod;
 
-        // 2. Malus fisici se i bisogni primari toccano lo zero
+        this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - finalFoodBurn);
+        this.gameState.waterLevel = Math.max(0, this.gameState.waterLevel - finalWaterBurn);
+
+        this.log(`Fine giornata: consumato cibo (-${finalFoodBurn}) e acqua (-${finalWaterBurn}) [Stress: ${stress.name}].`, "log-system");
+
+        // 2. USURA NATURALE DELLA ZATTERA DOVUTA AL TEMPO
+        const naturalDegradation = this.getNaturalRaftDegradation();
+        this.gameState.raftIntegrity = Math.max(0, this.gameState.raftIntegrity - naturalDegradation);
+        if (naturalDegradation > 0) {
+            this.log(`Il tempo e la salsedine corrodono la gomma della zattera: -${naturalDegradation}% integrità.`, "log-bad");
+        }
+
+        // 3. DANNI DA PRIVAZIONE
         if (this.gameState.foodLevel === 0) {
             this.gameState.health -= 15;
-            this.log("La denutrizione prolungata ti debilita!", "log-bad");
+            this.log("Stai morendo di fame!", "log-bad");
         }
         if (this.gameState.waterLevel === 0) {
             this.gameState.health -= 25;
-            this.log("La disidratazione ti sta provocando allucinazioni e danni gravi!", "log-bad");
+            this.log("La disidratazione ti sta uccidendo!", "log-bad");
         }
 
-        // 3. Generazione nuovo meteo per il giorno successivo con logica di transizione realistica
+        // 4. GENERAZIONE METEO CON DIFFICOLTÀ INCREMENTALE
         this.calculateNextWeather();
 
-        // 4. Risoluzione eventi ambientali notturni legati al nuovo meteo imposto
+        // 5. APPLICAZIONE CONSEGUENZE NOTTURNE DEL NUOVO METEO
         this.handleWeatherConsequences();
 
-        // 5. Controlli vitali di Game Over
+        // 6. CONTROLLO CONDIZIONI CRITICHE
         if (this.gameState.raftIntegrity <= 0) {
             this.gameState.health = 0;
-            this.log("La zattera lacerata ha perso del tutto pressione. Sei affondato nell'oceano.", "log-bad");
+            this.log("La zattera si è lacerata del tutto per l'usura del tempo. Sei affondato.", "log-bad");
         }
 
         if (this.gameState.health <= 0) {
             this.gameState.health = 0;
-            this.log("Il tuo corpo ha ceduto agli elementi dell'oceano. GAME OVER.", "log-bad");
+            this.log("Il tuo corpo ha ceduto agli stenti. GAME OVER.", "log-bad");
             this.gameState.gameOver = true;
             this.updateUI();
             return;
         }
 
-        // Incremento giorno
+        // Avanzamento Giorno
         this.gameState.day++;
         this.log(`--- Sorge il sole. Inizia il Giorno ${this.gameState.day} ---`, "log-system");
         
-        // Soccorso automatico raro a fine gioco se il meteo assiste la visibilità
+        // Soccorsi rari calcolati sul tempo passato
         if (this.gameState.day >= 20 && this.gameState.currentWeather === 'sereno' && Math.random() > 0.85) {
-            this.log("Un aereo della pattuglia marittima nota la zattera gialla grazie al mare calmo! SEI SALVO!", "log-good");
+            this.log("Un aereo della Guardia Costiera ti avvista! SEI SALVO!", "log-good");
             this.gameState.gameOver = true;
         }
 
         this.updateUI();
     }
 
-    // Sistema probabilistico realistico per variare il meteo
+    // Il tempo altera anche le probabilità del meteo: più vai avanti, più il mare aperto diventa brutale
     calculateNextWeather() {
         const rand = Math.random();
-        const current = this.gameState.currentWeather;
-
-        // Catena di transizione (Es: Difficile passare da Sole Torrido a Tempesta senza passare da Nuvoloso)
-        if (current === 'torrido') {
-            this.gameState.currentWeather = rand < 0.6 ? 'sereno' : 'torrido';
-        } else if (current === 'tempesta') {
-            this.gameState.currentWeather = rand < 0.4 ? 'pioggia' : (rand < 0.8 ? 'nuvoloso' : 'tempesta');
-        } else if (current === 'pioggia') {
-            this.gameState.currentWeather = rand < 0.3 ? 'tempesta' : (rand < 0.7 ? 'nuvoloso' : 'pioggia');
-        } else if (current === 'nebbia') {
-            this.gameState.currentWeather = rand < 0.5 ? 'nuvoloso' : (rand < 0.8 ? 'sereno' : 'nebbia');
+        
+        // Meccanica: dopo il giorno 10, la probabilità di incontrare Tempesta o Sole Torrido raddoppia
+        if (this.gameState.day > 10) {
+            if (rand < 0.20) this.gameState.currentWeather = 'tempesta'; // Tempeste più frequenti
+            else if (rand < 0.40) this.gameState.currentWeather = 'torrido';  // Soli torridi letali
+            else if (rand < 0.60) this.gameState.currentWeather = 'pioggia';
+            else if (rand < 0.80) this.gameState.currentWeather = 'nuvoloso';
+            else if (rand < 0.93) this.gameState.currentWeather = 'nebbia';
+            else this.gameState.currentWeather = 'sereno';
         } else {
-            // Se sereno o nuvoloso, tutto è aperto
-            if (rand < 0.25) this.gameState.currentWeather = 'sereno';
-            else if (rand < 0.50) this.gameState.currentWeather = 'nuvoloso';
-            else if (rand < 0.70) this.gameState.currentWeather = 'pioggia';
-            else if (rand < 0.85) this.gameState.currentWeather = 'torrido';
-            else if (rand < 0.95) this.gameState.currentWeather = 'nebbia';
+            // Giorni iniziali più miti e favorevoli
+            if (rand < 0.35) this.gameState.currentWeather = 'sereno';
+            else if (rand < 0.65) this.gameState.currentWeather = 'nuvoloso';
+            else if (rand < 0.80) this.gameState.currentWeather = 'pioggia';
+            else if (rand < 0.90) this.gameState.currentWeather = 'torrido';
+            else if (rand < 0.97) this.gameState.currentWeather = 'nebbia';
             else this.gameState.currentWeather = 'tempesta';
         }
     }
 
-    // Applica danni strutturali o fortuiti dovuti al meteo durante il riposo della notte
     handleWeatherConsequences() {
         const weather = this.gameState.currentWeather;
 
         if (weather === 'tempesta') {
-            const damage = Math.floor(Math.random() * 15) + 15; // 15-30 danni alla zattera
+            const damage = Math.floor(Math.random() * 10) + 15;
             this.gameState.raftIntegrity = Math.max(0, this.gameState.raftIntegrity - damage);
-            this.gameState.health = Math.max(0, this.gameState.health - 5);
-            this.log(`Durante la notte le ondate della Tempesta hanno flagellato il tessuto della zattera (-${damage}% Integrità).`, "log-bad");
-        } 
-        else if (weather === 'torrido') {
-            this.log("La notte non ha portato refrigerio. Il calore accumulato ti ha fatto svegliare spossato.", "log-bad");
-        }
-        else if (weather === 'pioggia') {
-            // Un piccolo aiuto automatico se piove mentre dormi
+            this.log(`Ondate della tempesta notturna sulla zattera: -${damage}% Integrità.`, "log-bad");
+        } else if (weather === 'pioggia') {
             this.gameState.inventory.waterRations += 1;
-            this.log("La pioggia notturna ha riempito parzialmente le vasche di riserva. +1 Acqua.", "log-good");
+            this.log("La pioggia nella notte riempie parzialmente i serbatoi. +1 Acqua.", "log-good");
         }
-        
-        // Evento predatore naturale slegato dal meteo ma calcolato nel loop d'azione
-        if (Math.random() > 0.85) {
+
+        // Più tempo passa, più gli squali diventano aggressivi attratti dai pesci o dal movimento
+        // Giorno 1-5: 10% di attacco squalo | Giorno 12+: 25% di attacco squalo ogni notte
+        const sharkChance = this.gameState.day > 12 ? 0.75 : 0.90;
+        if (Math.random() > sharkChance) {
             const bite = Math.floor(Math.random() * 10) + 5;
             this.gameState.raftIntegrity = Math.max(0, this.gameState.raftIntegrity - bite);
-            this.log(`Un predatore marino (squalo) ha morso un tubolare della zattera al buio! (-${bite}% Integrità)`, "log-bad");
+            this.log(`Uno squalo attacca la zattera nella notte! (-${bite}% Integrità)`, "log-bad");
         }
     }
 }
 
-// Avvia il gioco al caricamento della pagina
 const game = new RaftSurvival();
 window.onload = () => game.init();
 </script>
