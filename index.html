@@ -87,7 +87,20 @@
             transition: background-color 1s ease;
         }
 
-        /* Banner per Eventi Casuali e Naufragio */
+        /* Banner di Notifica In-Game (Sostituisce l'alert del browser) */
+        #game-warning-banner {
+            background-color: #7f1d1d;
+            color: #fca5a5;
+            padding: 10px;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: bold;
+            border-radius: 6px;
+            border: 1px solid #ef4444;
+            display: none; /* Gestito via JS */
+            animation: pulse 1s infinite;
+        }
+
         #event-banner {
             background-color: #7f1d1d;
             color: #fef08a;
@@ -98,7 +111,6 @@
             border-radius: 6px;
             border: 2px dashed #facc15;
             display: none;
-            animation: pulse 1.5s infinite;
         }
 
         #water-survival-banner {
@@ -232,7 +244,8 @@
 
     <div id="weather-banner">Meteo: Calcolo delle correnti...</div>
     
-    <!-- Banner Eventi Casuali e Emergenze -->
+    <!-- Banner Notifiche e Emergenze Integrate -->
+    <div id="game-warning-banner"></div>
     <div id="event-banner">⚠️ AVVISTAMENTO EVENTO CRITICO</div>
     <div id="water-survival-banner">🚨 LA ZATTERA È AFFONDATA! SEI IN ACQUA!</div>
 
@@ -258,7 +271,7 @@
 
     <!-- Diario di Bordo -->
     <div id="log-panel">
-        <div class="log-entry log-system">SISTEMA: Controllo risorse al 100% con Alert bloccante attivato correttamente.</div>
+        <div class="log-entry log-system">SISTEMA: UI d'emergenza aggiornata. Notifiche integrate nell'applicazione.</div>
     </div>
 
     <!-- Pannello di Controllo Azioni -->
@@ -304,6 +317,7 @@ class IdleRealTimeSurvival {
         this.tickRate = 2000;       
         this.elapsedInDay = 0;
         this.loopInterval = null;
+        this.warningTimeout = null;
 
         this.ticksPerDay = this.dayDuration / this.tickRate; 
         this.standardDamagePerTick = 5 / this.ticksPerDay;  
@@ -324,6 +338,18 @@ class IdleRealTimeSurvival {
         entry.innerText = message;
         logPanel.appendChild(entry);
         logPanel.scrollTop = logPanel.scrollHeight;
+    }
+
+    // Gestore grafico per mostrare avvisi temporanei nell'interfaccia di gioco
+    showUINotification(message) {
+        const banner = document.getElementById('game-warning-banner');
+        banner.innerText = message;
+        banner.style.display = 'block';
+        
+        if (this.warningTimeout) clearTimeout(this.warningTimeout);
+        this.warningTimeout = setTimeout(() => {
+            banner.style.display = 'none';
+        }, 3000); // Scompare dopo 3 secondi
     }
 
     gameTick() {
@@ -354,7 +380,6 @@ class IdleRealTimeSurvival {
         if (this.gameState.foodLevel <= 0) this.gameState.health = Math.max(0, this.gameState.health - 0.4);
         if (this.gameState.waterLevel <= 0) this.gameState.health = Math.max(0, this.gameState.health - 0.8);
 
-        // Gestione danni zattera
         if (!this.gameState.isFloatingInWater) {
             let dmg = (this.gameState.currentWeather === 'tempesta') ? this.stormDamagePerTick : this.standardDamagePerTick;
             this.gameState.raftIntegrity = Math.max(0, this.gameState.raftIntegrity - dmg);
@@ -398,7 +423,7 @@ class IdleRealTimeSurvival {
             const nuovoMeteo = disponibili[Math.floor(Math.random() * disponibili.length)];
             
             if (vecchioMeteo !== nuovoMeteo) {
-                this.gameState.currentWeather = nuevoMeteo;
+                this.gameState.currentWeather = nuovoMeteo;
                 let nomeMeteo = (nuovoMeteo === 'sereno' && (this.gameState.phase === 'SERA' || this.gameState.phase === 'NOTTE')) ? this.weatherTypes[nuovoMeteo].nightName : this.weatherTypes[nuovoMeteo].name;
                 this.log(`☁️ METEO: Il cielo vira verso ${nomeMeteo}`, "log-system");
                 
@@ -492,11 +517,10 @@ class IdleRealTimeSurvival {
         }
     }
 
-    // --- LOGICHE DI AZIONE CORRETTE CON ALERT BLOCANTE ---
     actionEat() {
         if (Math.round(this.gameState.foodLevel) >= 100) {
-            this.log("🚫 ALERT: La tua pancia è già piena, non sprecare cibo prezioso!", "log-bad");
-            alert("La tua pancia è già piena! Non sprecare cibo prezioso.");
+            this.log("🚫 AVVISO: La tua pancia è già piena, non sprecare cibo prezioso!", "log-bad");
+            this.showUINotification("⚠️ La tua pancia è già piena! Non sprecare cibo prezioso.");
             return;
         }
         if (this.gameState.inventory.foodRations > 0) {
@@ -505,14 +529,14 @@ class IdleRealTimeSurvival {
             this.log("Consumata una razione di cibo.", "log-good");
             this.updateUI();
         } else {
-            this.log("Scorte di cibo teerminate!", "log-bad");
+            this.log("Scorte di cibo terminate!", "log-bad");
         }
     }
 
     actionDrink() {
         if (Math.round(this.gameState.waterLevel) >= 100) {
-            this.log("🚫 ALERT: La tua pancia è già piena, non sprecare acqua preziosa!", "log-bad");
-            alert("La tua pancia è già piena! Non sprecare acqua preziosa.");
+            this.log("🚫 AVVISO: Sei già idratato, non sprecare acqua preziosa!", "log-bad");
+            this.showUINotification("⚠️ Sei già idratato! Non sprecare acqua preziosa.");
             return;
         }
         if (this.gameState.inventory.waterRations > 0) {
