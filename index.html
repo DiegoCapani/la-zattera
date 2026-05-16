@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Disperso in Mare - Fast Idle Survival</title>
+    <title>Disperso in Mare - Real-Time Dynamic Survival</title>
     <style>
         /* Reset e Stile Interfaccia - Tema Oceano Profondo */
         * {
@@ -48,6 +48,13 @@
             text-transform: uppercase;
         }
 
+        #time-display {
+            font-size: 1rem;
+            color: #38bdf8;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+
         /* Barra di Progresso del Giorno (Durata: 10 Minuti Reali) */
         #day-progress-container {
             width: 100%;
@@ -63,7 +70,7 @@
             width: 0%;
             height: 100%;
             background-color: #38bdf8;
-            transition: width 2s linear; /* Transizione fluida adattata ai 2 secondi */
+            transition: width 2s linear; 
         }
 
         #weather-banner {
@@ -76,6 +83,7 @@
             border-radius: 6px;
             text-transform: uppercase;
             border: 1px solid #475569;
+            transition: background-color 1s ease;
         }
 
         /* Banner per Eventi Casuali (Navi/Aerei) */
@@ -199,7 +207,8 @@
 
 <div id="game-container">
     <header>
-        <h1>ZATTERA: GIORNO <span id="day-count">1</span></h1>
+        <h1>SOPRAVVIVENZA IN CORSO</h1>
+        <div id="time-display">GIORNO 1 - ORE 00:00</div>
         <div id="day-progress-container"><div id="day-progress-bar"></div></div>
     </header>
 
@@ -229,7 +238,7 @@
 
     <!-- Diario di Bordo Energetico -->
     <div id="log-panel">
-        <div class="log-entry log-system">SISTEMA: Configurazione aggiornata! 1 Giorno di gioco dura ora 10 MINUTI REALI. Ogni 3 giorni (30 minuti reali) tieni d'occhio i radar per i soccorsi!</div>
+        <div class="log-entry log-system">SISTEMA: Simulazione Real-Time Dinamica attiva! Fame e sete calano costantemente minuto per minuto. Il meteo può cambiare improvvisamente durante il giorno.</div>
     </div>
 
     <!-- Pannello di Controllo Azioni -->
@@ -247,7 +256,8 @@
 class IdleRealTimeSurvival {
     constructor() {
         this.gameState = {
-            day: 1, health: 100, waterLevel: 100, foodLevel: 100, raftIntegrity: 100,
+            day: 1, hour: 0, minute: 0,
+            health: 100, waterLevel: 100, foodLevel: 100, raftIntegrity: 100,
             currentWeather: 'sereno',
             inventory: { waterRations: 10, foodRations: 14, flares: 3 },
             gameOver: false,
@@ -255,16 +265,16 @@ class IdleRealTimeSurvival {
             eventTimeLeft: 0
         };
 
+        // I consumi (Burn) ora sono tarati "al minuto di gioco" (calcolati ogni tick da 2 secondi)
         this.weatherTypes = {
-            'sereno': { name: "Mare Sereno ☀️", color: "#1e293b", waterBurn: 15, foodBurn: 12, fishChance: 0.5, rainChance: 0.1, flareSuccess: 0.15 },
-            'torrido': { name: "Sole Torrido 🥵", color: "#b45309", waterBurn: 28, foodBurn: 8, fishChance: 0.3, rainChance: 0.0, flareSuccess: 0.20 },
-            'pioggia': { name: "Pioggia Battente 🌧️", color: "#1d4ed8", waterBurn: 10, foodBurn: 18, fishChance: 0.4, rainChance: 0.8, flareSuccess: 0.05 },
-            'tempesta': { name: "TEMPESTA ⛈️", color: "#7f1d1d", waterBurn: 15, foodBurn: 22, fishChance: 0.1, rainChance: 0.9, flareSuccess: 0.01 }
+            'sereno': { name: "Mare Sereno ☀️", color: "#1e293b", waterBurn: 0.05, foodBurn: 0.04, fishChance: 0.5, rainChance: 0.1, flareSuccess: 0.15 },
+            'torrido': { name: "Sole Torrido 🥵", color: "#b45309", waterBurn: 0.10, foodBurn: 0.03, fishChance: 0.3, rainChance: 0.0, flareSuccess: 0.20 },
+            'pioggia': { name: "Pioggia Battente 🌧️", color: "#1d4ed8", waterBurn: 0.03, foodBurn: 0.06, fishChance: 0.4, rainChance: 0.8, flareSuccess: 0.05 },
+            'tempesta': { name: "TEMPESTA ⛈️", color: "#7f1d1d", waterBurn: 0.05, foodBurn: 0.08, fishChance: 0.1, rainChance: 0.9, flareSuccess: 0.01 }
         };
 
-        // NUOVO BILANCIAMENTO DEL TEMPO
-        this.dayDuration = 600000;  // 1 Giorno = 10 minuti (10 * 60 * 1000 = 600.000 ms)
-        this.tickRate = 2000;       // Aggiornamento logico rapido ogni 2 secondi per maggiore reattività
+        this.dayDuration = 600000;  // 1 Giorno = 10 minuti reali (600.000 ms)
+        this.tickRate = 2000;       // Ogni 2 secondi reali aggiorniamo la logica (Tick del motore di gioco)
         this.elapsedInDay = 0;
         this.loopInterval = null;
     }
@@ -273,7 +283,7 @@ class IdleRealTimeSurvival {
         this.gameState.currentWeather = 'sereno';
         this.updateUI();
         this.loopInterval = setInterval(() => this.gameTick(), this.tickRate);
-        this.log("Il timer a ritmo serrato è partito. Sopravvivi alla giornata!", "log-system");
+        this.log("Motore grafico e fisico avviato. Le barre iniziano a scendere...", "log-system");
     }
 
     log(message, type = '') {
@@ -285,92 +295,113 @@ class IdleRealTimeSurvival {
         logPanel.scrollTop = logPanel.scrollHeight;
     }
 
+    // QUESTO FUNZIONA CONTINUAMENTE OGNI 2 SECONDI REALI
     gameTick() {
         if (this.gameState.gameOver) {
             clearInterval(this.loopInterval);
             return;
         }
 
-        // 1. Timer dell'evento casuale attivo (Nave/Aereo)
-        if (this.gameState.activeRescueEvent) {
-            this.gameState.eventTimeLeft -= this.tickRate;
-            if (this.gameState.eventTimeLeft <= 0) {
-                this.log(`🚨 EVENTO SCADUTO: Il/La ${this.gameState.activeRescueEvent.toUpperCase()} si è allontanato/a oltre l'orizzonte. Occasione persa.`, "log-bad");
-                this.gameState.activeRescueEvent = null;
-            }
-        }
-
-        // 2. Avanzamento del giorno corrente
+        // 1. Avanzamento dell'orologio interno del gioco (10 minuti reali = 24 ore di gioco)
+        // 2 secondi reali equivalgono a circa 4.8 minuti di gioco
         this.elapsedInDay += this.tickRate;
-        const progressPercent = (this.elapsedInDay / this.dayDuration) * 100;
+        
+        let ratio = this.elapsedInDay / this.dayDuration;
+        let totalMinutesInDay = ratio * 1440; // 1440 sono i minuti in un giorno
+        this.gameState.hour = Math.floor(totalMinutesInDay / 60);
+        this.gameState.minute = Math.floor(totalMinutesInDay % 60);
+
+        const progressPercent = ratio * 100;
         document.getElementById('day-progress-bar').style.width = `${progressPercent}%`;
 
-        // SCATTO DEL NUOVO GIORNO (OGNI 10 MINUTI)
-        if (this.elapsedInDay >= this.dayDuration) {
-            this.elapsedInDay = 0;
-            this.processNextDayCycle();
-        } else {
-            this.updateUI();
-        }
-    }
-
-    processNextDayCycle() {
+        // 2. CONSUMO DINAMICO COSTANTE (Fame e Sete scendono ORA!)
         const weather = this.weatherTypes[this.gameState.currentWeather];
-        const timeStress = Math.floor(this.gameState.day * 0.4);
+        // Lo stress aumenta leggermente con i giorni sopravvissuti
+        const timeStressModifier = 1 + (this.gameState.day * 0.05); 
 
-        // Detrazioni passive a fine giornata
-        this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - (weather.foodBurn + timeStress));
-        this.gameState.waterLevel = Math.max(0, this.gameState.waterLevel - (weather.waterBurn + timeStress));
+        this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - (weather.foodBurn * timeStressModifier));
+        this.gameState.waterLevel = Math.max(0, this.gameState.waterLevel - (weather.waterBurn * timeStressModifier));
 
-        if (this.gameState.foodLevel === 0) this.gameState.health -= 12;
-        if (this.gameState.waterLevel === 0) this.gameState.health -= 20;
+        // Danni periodici alla salute se i parametri sono a zero
+        if (this.gameState.foodLevel <= 0) this.gameState.health = Math.max(0, this.gameState.health - 0.4);
+        if (this.gameState.waterLevel <= 0) this.gameState.health = Math.max(0, this.gameState.health - 0.8);
 
-        const raftUsury = Math.floor(this.gameState.day * 0.3) + (this.gameState.currentWeather === 'tempesta' ? 15 : 0);
-        this.gameState.raftIntegrity = Math.max(0, this.gameState.raftIntegrity - raftUsury);
+        // Usura lenta e continua della zattera se c'è tempesta
+        if (this.gameState.currentWeather === 'tempesta') {
+            this.gameState.raftIntegrity = Math.max(0, this.gameState.raftIntegrity - 0.15);
+        } else {
+            this.gameState.raftIntegrity = Math.max(0, this.gameState.raftIntegrity - 0.02); // Usura salina minima
+        }
 
-        if (this.gameState.raftIntegrity <= 0 || this.gameState.health <= 0) {
+        // Controllo vitalità immediato
+        if (this.gameState.health <= 0 || this.gameState.raftIntegrity <= 0) {
             this.gameState.health = 0;
             this.gameState.gameOver = true;
-            this.log("DIARIO: Sfinimento o distruzione totale della zattera. GAME OVER.", "log-bad");
+            this.log(`💀 CRASH: Sei deceduto alle ore ${this.formatTime(this.gameState.hour)}:${this.formatTime(this.gameState.minute)} del Giorno ${this.gameState.day}.`, "log-bad");
             this.updateUI();
             return;
         }
 
-        this.gameState.day++;
-        this.log(`--- NOTIZIE DI BORDO: Inizia il Giorno ${this.gameState.day} ---`, "log-system");
-
-        if (this.gameState.currentWeather === 'pioggia') {
-            this.gameState.inventory.waterRations = Math.min(20, this.gameState.inventory.waterRations + 1);
-            this.log("Bonus: La pioggia del giorno passato ha riempito +1 Acqua nei secchi.", "log-good");
-        }
-
-        // === EVENTO CASUALE OGNI 3 GIORNI ===
-        if (this.gameState.day % 3 === 0) {
-            if (Math.random() < 0.65) { // Leggermente alzata la probabilità al 65% visto il ritmo più veloce
-                const tipi = ['nave mercantile', 'aereo da ricognizione'];
-                this.gameState.activeRescueEvent = tipi[Math.floor(Math.random() * tipi.length)];
+        // 3. CAMBIO METEO IMPROVVISO DURANTE IL GIORNO (2% di chance ogni 2 secondi)
+        if (Math.random() < 0.02) {
+            const keys = Object.keys(this.weatherTypes);
+            const vecchioMeteo = this.gameState.currentWeather;
+            const nuovoMeteo = keys[Math.floor(Math.random() * keys.length)];
+            
+            if (vecchioMeteo !== nuovoMeteo) {
+                this.gameState.currentWeather = nuovoMeteo;
+                this.log(`☁️ CAMBIO METEO [${this.formatTime(this.gameState.hour)}:${this.formatTime(this.gameState.minute)}]: Il tempo sta cambiando in ${this.weatherTypes[nuovoMeteo].name}!`, "log-system");
                 
-                // Finestra di tempo tarata a 2 minuti e mezzo reali (150.000 millisecondi)
-                this.gameState.eventTimeLeft = 150000; 
-                
-                this.log(`⚠️ VISIBILITÀ DI SOCCORSO: Vedi un/una ${this.gameState.activeRescueEvent.toUpperCase()} in transito! Rimarrà in zona per 2 minuti e mezzo! USA IL RAZZO!`, "log-event");
-            } else {
-                this.log("SISTEMA: È il terzo giorno, ma l'orizzonte rimane vuoto.", "log-system");
+                // Se inizia a piovere, c'è un piccolissimo recupero d'acqua automatico immediato
+                if (nuovoMeteo === 'pioggia') {
+                    this.gameState.inventory.waterRations = Math.min(20, this.gameState.inventory.waterRations + 1);
+                    this.log("Hai posizionato al volo un secchio per la pioggia (+1 Acqua).", "log-good");
+                }
             }
         }
 
-        const keys = Object.keys(this.weatherTypes);
-        this.gameState.currentWeather = keys[Math.floor(Math.random() * keys.length)];
+        // 4. Gestione timer dell'evento di soccorso attivo
+        if (this.gameState.activeRescueEvent) {
+            this.gameState.eventTimeLeft -= this.tickRate;
+            if (this.gameState.eventTimeLeft <= 0) {
+                this.log(`🚨 EVENTO PERSO: Il mezzo di soccorso ha superato la tua posizione senza scorgerti.`, "log-bad");
+                this.gameState.activeRescueEvent = null;
+            }
+        }
+
+        // 5. SCATTO DEL NUOVO GIORNO (SE SCADONO I 10 MINUTI)
+        if (this.elapsedInDay >= this.dayDuration) {
+            this.elapsedInDay = 0;
+            this.gameState.day++;
+            this.log(`🌅 UN NUOVO MATTINO: Inizia il Giorno ${this.gameState.day}! Sei sopravvissuto un'altra notte.`, "log-good");
+
+            // Controllo spawn soccorsi ogni 3 giorni completati
+            if (this.gameState.day % 3 === 0) {
+                if (Math.random() < 0.70) {
+                    const tipi = ['Nave Cargo', 'Aereo da perlustrazione'];
+                    this.gameState.activeRescueEvent = tipi[Math.floor(Math.random() * tipi.length)];
+                    this.gameState.eventTimeLeft = 150000; // 2 minuti e mezzo reali
+                    this.log(`⚠️ DISPACCHIO RADIO: Un/Una ${this.gameState.activeRescueEvent.toUpperCase()} è visibile all'orizzonte! Spara un razzo prima che si allontani!`, "log-event");
+                }
+            }
+        }
 
         this.updateUI();
     }
 
+    formatTime(val) {
+        return val < 10 ? '0' + val : val;
+    }
+
     updateUI() {
-        document.getElementById('day-count').innerText = this.gameState.day;
-        document.getElementById('stat-health').innerText = this.gameState.health;
-        document.getElementById('stat-raft').innerText = this.gameState.raftIntegrity;
-        document.getElementById('stat-water-level').innerText = this.gameState.waterLevel;
-        document.getElementById('stat-food-level').innerText = this.gameState.foodLevel;
+        // Aggiorna l'orologio dell'interfaccia
+        document.getElementById('time-display').innerText = `GIORNO ${this.gameState.day} - ORE ${this.formatTime(this.gameState.hour)}:${this.formatTime(this.gameState.minute)}`;
+        
+        // Arrotonda per la visualizzazione grafica delle percentuali
+        document.getElementById('stat-health').innerText = Math.round(this.gameState.health);
+        document.getElementById('stat-raft').innerText = Math.round(this.gameState.raftIntegrity);
+        document.getElementById('stat-water-level').innerText = Math.round(this.gameState.waterLevel);
+        document.getElementById('stat-food-level').innerText = Math.round(this.gameState.foodLevel);
         
         document.getElementById('inv-water').innerText = this.gameState.inventory.waterRations;
         document.getElementById('inv-food').innerText = this.gameState.inventory.foodRations;
@@ -386,19 +417,15 @@ class IdleRealTimeSurvival {
 
         const weather = this.weatherTypes[this.gameState.currentWeather];
         const banner = document.getElementById('weather-banner');
-        banner.innerText = `Meteo attuale per oggi: ${weather.name}`;
+        banner.innerText = `Meteo: ${weather.name}`;
         banner.style.backgroundColor = weather.color;
 
-        // Gestione scorrimento minuti residui sul banner di avvistamento
+        // Gestione Banner evento di salvataggio
         const evBanner = document.getElementById('event-banner');
         if (this.gameState.activeRescueEvent) {
-            const secondiTotali = Math.ceil(this.gameState.eventTimeLeft / 1000);
-            const min = Math.floor(secondiTotali / 60);
-            const sec = secondiTotali % 60;
-            const formatoTempo = `${min}:${sec < 10 ? '0' : ''}${sec}`;
-            
+            const sec = Math.ceil(this.gameState.eventTimeLeft / 1000);
             evBanner.style.display = 'block';
-            evBanner.innerText = `⚠️ CONTATTO METEOROLOGICO: ${this.gameState.activeRescueEvent.toUpperCase()} IN ZONA! TEMPO AL LIMITE: ${formatoTempo}`;
+            evBanner.innerText = `⚠️ SOCCORSI DISPONIBILI: ${this.gameState.activeRescueEvent.toUpperCase()} AVVISTATO/A! SPARIREBBE TRA: ${sec}s`;
         } else {
             evBanner.style.display = 'none';
         }
@@ -408,27 +435,16 @@ class IdleRealTimeSurvival {
         }
     }
 
-    checkInstantDeath() {
-        if (this.gameState.foodLevel === 0) this.gameState.health = Math.max(0, this.gameState.health - 5);
-        if (this.gameState.waterLevel === 0) this.gameState.health = Math.max(0, this.gameState.health - 8);
-        
-        if (this.gameState.health <= 0) {
-            this.gameState.health = 0;
-            this.gameState.gameOver = true;
-            this.log("⚠️ SEI MORTO DI SFINIMENTO. Le tue funzioni vitali si sono arrestate per lo sforzo.", "log-bad");
-        }
-    }
-
-    // --- AZIONI ED OPERAZIONI DI PREVENZIONE SPRECHI ---
+    // --- AZIONI MANUALI DEL GIOCATORE ---
     actionEat() {
         if (this.gameState.foodLevel >= 100) {
-            this.log("Sei già a stomaco pieno! Non ha senso sprecare cibo ora.", "log-system");
+            this.log("Sei già a stomaco pieno! Non sprecare cibo.", "log-system");
             return;
         }
         if (this.gameState.inventory.foodRations > 0) {
             this.gameState.inventory.foodRations--;
             this.gameState.foodLevel = Math.min(100, this.gameState.foodLevel + 35);
-            this.log("Hai mangiato una razione di cibo. Ti senti più forte.", "log-good");
+            this.log("Hai mangiato una razione.", "log-good");
             this.updateUI();
         } else {
             this.log("Scorte di cibo esaurite!", "log-bad");
@@ -437,7 +453,7 @@ class IdleRealTimeSurvival {
 
     actionDrink() {
         if (this.gameState.waterLevel >= 100) {
-            this.log("Non hai più sete, sei completamente idratato. Non sprecare acqua!", "log-system");
+            this.log("Non hai più sete. Risparmia l'acqua!", "log-system");
             return;
         }
         if (this.gameState.inventory.waterRations > 0) {
@@ -451,23 +467,23 @@ class IdleRealTimeSurvival {
     }
 
     actionFish() {
-        this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - 4);
-        this.gameState.waterLevel = Math.max(0, this.gameState.waterLevel - 2);
+        // Lo sforzo immediato toglie un pezzettino fisso di risorse
+        this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - 5);
+        this.gameState.waterLevel = Math.max(0, this.gameState.waterLevel - 3);
         
         const weather = this.weatherTypes[this.gameState.currentWeather];
         if (Math.random() < weather.fishChance) {
             this.gameState.inventory.foodRations++;
-            this.log("🎣 Successo! Hai pescato qualcosa. (-4% Fame, -2% Sete).", "log-good");
+            this.log("🎣 Pescato un pesce! Lo sforzo ti ha debilitato.", "log-good");
         } else {
-            this.log("Niente da fare, l'esca è andata persa (-4% Fame, -2% Sete).", "log-bad");
+            this.log("Nessun pesce ha abboccato.", "log-bad");
         }
-        this.checkInstantDeath();
         this.updateUI();
     }
 
     actionCollectWater() {
         if (this.gameState.inventory.waterRations >= 20) {
-            this.log("I tuoi contenitori sono stracolmi! Non puoi accumulare altra acqua.", "log-system");
+            this.log("Contenitori stracolmi!", "log-system");
             return;
         }
         this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - 2);
@@ -476,25 +492,23 @@ class IdleRealTimeSurvival {
         const weather = this.weatherTypes[this.gameState.currentWeather];
         if (Math.random() < weather.rainChance) {
             this.gameState.inventory.waterRations++;
-            this.log("💧 Successo! Raccolta acqua piovana completata (-2% Fame, -3% Sete).", "log-good");
+            this.log("💧 Hai raccolto acqua dolce dai teli piovani.", "log-good");
         } else {
-            this.log("La raccolta è fallita. C'è troppa poca umidità nell'aria (-2% Fame, -3% Sete).", "log-bad");
+            this.log("L'aria è secca, non hai raccolto nulla.", "log-bad");
         }
-        this.checkInstantDeath();
         this.updateUI();
     }
 
     actionUseKit() {
         if (this.gameState.raftIntegrity >= 100) {
-            this.log("La zattera è già in condizioni perfette! Inutile lavorare ora.", "log-system");
+            this.log("La zattera è perfetta.", "log-system");
             return;
         }
         this.gameState.foodLevel = Math.max(0, this.gameState.foodLevel - 6);
         this.gameState.waterLevel = Math.max(0, this.gameState.waterLevel - 6);
         
         this.gameState.raftIntegrity = Math.min(100, this.gameState.raftIntegrity + 20);
-        this.log("🔧 Zattera rattoppata con successo! Lavoro pesante (-6% Fame, -6% Sete).", "log-good");
-        this.checkInstantDeath();
+        this.log("🔧 Hai rinforzato le travi di legno.", "log-good");
         this.updateUI();
     }
 
@@ -503,28 +517,26 @@ class IdleRealTimeSurvival {
             this.gameState.inventory.flares--;
             
             if (this.gameState.activeRescueEvent) {
-                this.log(`🔥 REAZIONE IDENTIFICATA! Hai sparato il razzo dritto verso la traiettoria del/della ${this.gameState.activeRescueEvent.toUpperCase()}! Aggancio all'85%!`, "log-event");
-                
+                this.log(`🔥 CENTRATO! Il razzo ha illuminato lo specchio di mare vicino al bersaglio!`, "log-event");
                 if (Math.random() < 0.85) {
-                    this.log(`🎉 VITTORIA STRATEGICA! I soccorritori a bordo del/della ${this.gameState.activeRescueEvent.toUpperCase()} ti hanno individuato! Stanno calando le scialuppe. SEI SALVO al Giorno ${this.gameState.day}!`, "log-good");
+                    this.log(`🎉 COMPLIMENTI! Ti hanno visto! Ti vengono incontro, HAI VINTO IL GIOCO!`, "log-good");
                     this.gameState.gameOver = true;
                 } else {
-                    this.log("Incredibile sfortuna! Il razzo è passato vicino ma l'equipaggio era voltato dall'altra parte.", "log-bad");
+                    this.log("Il razzo è esploso alle loro spalle, non se ne sono accorti.", "log-bad");
                 }
             } else {
                 const weather = this.weatherTypes[this.gameState.currentWeather];
-                this.log(`Hai sparato un razzo alla cieca nell'oceano vuoto. Probabilità meteo: ${Math.floor(weather.flareSuccess * 100)}%.`, "log-system");
-                
+                this.log(`Spari alla cieca nell'orizzonte vuoto. Chance meteo: ${Math.floor(weather.flareSuccess * 100)}%.`, "log-system");
                 if (Math.random() < weather.flareSuccess) {
-                    this.log(`🎉 COLPO DI SCENA MIRACOLOSO! Una nave invisibile oltre la nebbia nota il bagliore! Ti hanno salvato!`, "log-good");
+                    this.log(`🎉 ASSURDO! Una pattuglia fuori rotta ti ha notato! SEI SALVO!`, "log-good");
                     this.gameState.gameOver = true;
                 } else {
-                    this.log("Il razzo cade in mare spegnendosi. Nessuno specchio d'acqua risponde.", "log-bad");
+                    this.log("Il segnale si perde tra le onde del mare.", "log-bad");
                 }
             }
             this.updateUI();
         } else {
-            this.log("Non hai più razzi rimasti nel kit!", "log-bad");
+            this.log("Razzi terminati!", "log-bad");
         }
     }
 }
